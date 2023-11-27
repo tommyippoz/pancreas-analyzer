@@ -3,7 +3,7 @@ import math
 import os
 import shutil
 import tkinter
-import tkinter.font
+from tkinter import font
 from csv import DictReader
 from tkinter import *
 from tkinter import ttk
@@ -105,12 +105,16 @@ class PancreasGUI(tkinter.Frame):
 
         # Frame Init
         self.root = root
-        in_names = ["PTV", "GTV", "EIV_5mm_t"]
+        in_names = ["GTV", "PTV", "EIV_5mm_t"]
         out_names = ["PTV V40G %", "PTV nonV40G cm3", "GTV V47G %", "GTV nonV47G cm3", "GTV V50G %", "PTV V35 %"]
-        self.insert_f, self.v_texts = self.build_insert(Frame(root, bg="white"), in_names)
+        tab_in_names = ["id", "GTV", "PTV", "EIV_5mm_d", "EIV_5mm_s", "EIV_5mm_b", "EIV_5mm_t"]
+        tab_out_names = ["PTV V40G %", "GTV V47G %", "GTV V50G %"]
+        self.insert_f, self.v_texts = self.build_insert(Frame(root, bg="white",
+                                                              highlightbackground="black",
+                                                              highlightthickness=1), in_names)
         self.predict_f, self.predict_labels = self.build_predict(Frame(root, bg="white"), out_names)
         self.header_f, self.distance_dropdown = self.build_header(Frame(root, bg="white"))
-        self.table_f, self.table_dict = self.build_table(Frame(root, bg="white"), in_names, out_names)
+        self.table_f, self.table_dict = self.build_table(Frame(root, bg="white"), tab_in_names, tab_out_names)
         self.footer = Frame(root, bg="white")
 
     def build_header(self, frame):
@@ -184,7 +188,7 @@ class PancreasGUI(tkinter.Frame):
             new_entry = Label(frame, text=value, bg='white')
             new_entry.grid(column=head_index, row=0, padx=5, pady=5)
             head_index += 1
-        new_entry = Label(frame, text='Distance', bg='white')
+        new_entry = Label(frame, text='Distance', bg='white', font=font.Font(weight="bold"))
         new_entry.grid(column=head_index, row=0, padx=5, pady=5)
         head_index += 1
         for value in out_names:
@@ -199,7 +203,7 @@ class PancreasGUI(tkinter.Frame):
                 new_entry = Label(frame, text='-', bg='white')
                 new_entry.grid(column=len(l_table[i].keys()), row=1+i, padx=5, pady=5)
                 l_table[i][value] = new_entry
-            new_entry = Label(frame, text='-', bg='white')
+            new_entry = Label(frame, text='-', bg='white', font=font.Font(weight="bold"))
             new_entry.grid(column=len(l_table[i].keys()), row=1 + i, padx=5, pady=5)
             l_table[i]['distance'] = new_entry
         for i in range(0, 5):
@@ -211,33 +215,44 @@ class PancreasGUI(tkinter.Frame):
         return frame, l_table
 
     def neighbour_search(self):
-        #try:
+        try:
             values = {}
+            missing = False
             for value in self.v_texts.keys():
                 v_str = self.v_texts[value].get()
-                values[value] = float(v_str.strip()) if len(v_str.strip()) > 0 else 0.0
+                if len(v_str.strip()) > 0:
+                    values[value] = float(v_str.strip())
+                else:
+                    missing = True
+                    values[value] = 0.0
 
-            # Creating Vars
-            ptv = float(values['PTV'])
-            gtv = float(values['GTV'])
-            eic = float(values['EIV_5mm_t'])
-            to_compare = [ptv, gtv, eic]
-            dist_metric = self.distance_dropdown.get()
+            if missing:
+                showwarning("Input Error", 'Input values are missing or are malformed. Please check box above')
+            else:
+                # Creating Vars
+                ptv = float(values['PTV'])
+                gtv = float(values['GTV'])
+                eic = float(values['EIV_5mm_t'])
+                to_compare = [ptv, gtv, eic]
+                dist_metric = self.distance_dropdown.get()
 
-            for patient in self.patient_data:
-                patient_triple = [float(patient['PTV']), float(patient['GTV']), float(patient['EIV_5mm_t'])]
-                patient['distance'] = compute_distance(to_compare, patient_triple, dist_metric)
+                for patient in self.patient_data:
+                    patient_triple = [float(patient['PTV']), float(patient['GTV']), float(patient['EIV_5mm_t'])]
+                    patient['distance'] = compute_distance(to_compare, patient_triple, dist_metric)
 
-            # Sorting according to the distance
-            self.patient_data = sorted(self.patient_data, key=lambda d: d['distance'])
+                # Sorting according to the distance
+                self.patient_data = sorted(self.patient_data, key=lambda d: d['distance'])
 
-            for i in self.table_dict.keys():
-                patient = self.patient_data[i]
-                for t_key in self.table_dict[i].keys():
-                    self.table_dict[i][t_key].config(text=format(float(patient[t_key]), ".2f"))
+                for i in self.table_dict.keys():
+                    patient = self.patient_data[i]
+                    for t_key in self.table_dict[i].keys():
+                        if t_key == 'id':
+                            self.table_dict[i][t_key].config(text=int(patient[t_key]))
+                        else:
+                            self.table_dict[i][t_key].config(text=format(float(patient[t_key]), ".2f"))
 
-        #except:
-        #    showwarning("Input Error", 'Input values are missing or are malformed')
+        except:
+            showwarning("Input Error", 'Input values are missing or are malformed. Please check box above')
 
     def reload_data(self):
         self.patient_data = read_csv()
@@ -245,30 +260,49 @@ class PancreasGUI(tkinter.Frame):
     def predict_output(self):
         try:
             values = {}
+            missing = False
             for value in self.v_texts.keys():
-                values[value] = float(self.v_texts[value].get())
+                v_str = self.v_texts[value].get()
+                if len(v_str.strip()) > 0:
+                    values[value] = float(v_str.strip())
+                else:
+                    missing = True
+                    values[value] = 0.0
 
-            # Creating Vars
-            ptv = values['PTV']
-            gtv = values['GTV']
-            eic = values['EIV_5mm_t']
-            pg = gtv/ptv
-            pmg = ptv - gtv
+            if missing:
+                showwarning("Input Error", 'Input values are missing or are malformed. Please check box above')
+            else:
 
-            ptv_t = (3/20)*pmg + eic/3 - 5
-            gtv_c = 104 - 2*eic/5 - 7*pg
-            gtv_t = eic / 4 + 0.3 * math.pow(pg + 0.5, 12) - 1.75
-            gtv50 = 108 - 0.4*eic - 20/pg
+                # Creating Vars
+                ptv = values['PTV']
+                gtv = values['GTV']
+                eic = values['EIV_5mm_t']
+                pg = gtv/ptv
+                gp12 = math.pow(pg+0.5, 12)
 
-            predicted_set = {"PTV V40G %": -eic/3 + 99.77,
-                             "PTV nonV40G cm3": ptv_t if ptv_t > 0 else 0.0,
-                             "GTV V47G %": gtv_c if gtv_c < 100 else 100.0,
-                             "GTV nonV47G cm3": gtv_t if gtv_t > 0 else 0.0,
-                             "GTV V50G %": gtv50 if gtv50 < 100 else 100.0,
-                             "PTV V35 %": 0}
+                predicted_set = {}
 
-            for out_key in self.predict_labels:
-                self.predict_labels[out_key].config(text=format(predicted_set[out_key], ".2f"))
+                gtv_t = -0.09 * gtv + 0.065 * ptv + 0.25 * eic - 2.15 * pg + 0.43 * gp12 - 1.86
+
+                predicted_set["GTV nonV47G cm3"] = gtv_t if gtv_t > 0 else 0.0
+
+                ptv_t = -0.15 * gtv + 0.15 * ptv + 0.3 * eic - 3.92
+                predicted_set["PTV nonV40G cm3"] = ptv_t if ptv_t > 0 else 0.0
+
+                gtv_c = -0.42 * eic - 5.64 * pg + 104
+                predicted_set["GTV V47G %"] = gtv_c if gtv_c < 100 else 100.0
+
+                gtv50 = -0.69 * eic - 15.65 * pg + 106.7
+                predicted_set["GTV V50G %"] = gtv50 if gtv50 < 100 else 100.0
+
+                v40g = -1.05 * eic + 0.11 * predicted_set["PTV nonV40G cm3"] - 1.57 * predicted_set["GTV V47G %"] + 257.25
+                predicted_set["PTV V40G %"] = v40g if v40g < 100 else 100.0
+
+                v35g = 0.005 * eic + 0.44 * predicted_set["PTV V40G %"] + 56.4
+                predicted_set["PTV V35 %"] = v35g if v35g < 100 else 100.0
+
+                for out_key in self.predict_labels:
+                    self.predict_labels[out_key].config(text=format(predicted_set[out_key], ".2f"))
         except:
             showwarning("Input Error", 'Input values are missing or are malformed')
 
