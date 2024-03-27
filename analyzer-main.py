@@ -168,7 +168,9 @@ class PancreasGUI(tkinter.Frame):
         frame.grid(padx=20, pady=10)
 
         p_button = Button(frame, text="Predict Outputs!", command=self.predict_output, bg="white")
-        p_button.grid(column=0, row=0, padx=10, pady=5, columnspan=len(out_names))
+        p_button.grid(column=0, row=0, padx=10, pady=5, columnspan=int(len(out_names)/2))
+        train_button = Button(frame, text="Train Predictors", command=self.train_regressor, bg="white")
+        train_button.grid(column=int(len(out_names)/2), row=0, padx=10, pady=5, columnspan=int(len(out_names)/2))
 
         p_labels = {}
         for value in out_names:
@@ -305,6 +307,11 @@ class PancreasGUI(tkinter.Frame):
                     self.predict_labels[out_key].config(text=format(predicted_set[out_key], ".2f"))
         except:
             showwarning("Input Error", 'Input values are missing or are malformed')
+
+
+
+    def train_regressor(self):
+        pass
 
 
 if __name__ == "__main__":
